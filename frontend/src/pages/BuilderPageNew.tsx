@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Briefcase, GraduationCap, Award, FolderGit2, File, ChevronDown, ChevronUp, Plus, Trash2, ZoomIn, ZoomOut, X, Eye, EyeOff } from 'lucide-react';
+import { User, Briefcase, GraduationCap, Award, FolderGit2, File, ChevronDown, ChevronUp, Plus, Trash2, ZoomIn, ZoomOut, X, Download } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import { useResume } from '../contexts/ResumeContext';
 import { ResumePreview } from '../components/ResumePreview';
 
@@ -27,6 +29,19 @@ export function BuilderPage() {
     { id: '1', category: 'Language', skills: [] },
   ]);
   const [newSkillInputs, setNewSkillInputs] = useState<Record<string, string>>({});
+  const [downloading, setDownloading] = useState(false);
+
+  // Sync skillCategories with resumeData.skillCategories on mount
+  useEffect(() => {
+    if (resumeData.skillCategories && resumeData.skillCategories.length > 0) {
+      const categories: SkillCategory[] = resumeData.skillCategories.map(cat => ({
+        id: cat.id,
+        category: cat.category,
+        skills: cat.skills.map(s => s.name),
+      }));
+      setSkillCategories(categories);
+    }
+  }, []); // Only run on mount
 
   const toggleSection = (section: Section) => {
     setExpandedSections(prev => ({
@@ -107,50 +122,109 @@ export function BuilderPage() {
       category: '',
       skills: []
     };
-     console.log('Adding new category:', newCategory);
-     console.log('Current categories:', skillCategories);
-    setSkillCategories([...skillCategories, newCategory]);
-     console.log('Categories after update should include new category');
+    const updatedCategories = [...skillCategories, newCategory];
+    setSkillCategories(updatedCategories);
+    
+    // Update resume data
+    updateResumeData({
+      skillCategories: updatedCategories.map(cat => ({
+        id: cat.id,
+        category: cat.category,
+        skills: cat.skills.map(skillName => ({
+          id: Date.now().toString() + Math.random(),
+          name: skillName,
+          level: 'Intermediate'
+        }))
+      }))
+    });
   };
 
   const removeSkillCategory = (categoryId: string) => {
-    setSkillCategories(skillCategories.filter(cat => cat.id !== categoryId));
+    const updatedCategories = skillCategories.filter(cat => cat.id !== categoryId);
+    setSkillCategories(updatedCategories);
+    
+    // Update resume data
+    updateResumeData({
+      skillCategories: updatedCategories.map(cat => ({
+        id: cat.id,
+        category: cat.category,
+        skills: cat.skills.map(skillName => ({
+          id: Date.now().toString() + Math.random(),
+          name: skillName,
+          level: 'Intermediate'
+        }))
+      }))
+    });
   };
 
   const updateSkillCategory = (categoryId: string, newCategoryName: string) => {
-    setSkillCategories(skillCategories.map(cat =>
+    const updatedCategories = skillCategories.map(cat =>
       cat.id === categoryId ? { ...cat, category: newCategoryName } : cat
-    ));
+    );
+    setSkillCategories(updatedCategories);
+    
+    // Update resume data
+    updateResumeData({
+      skillCategories: updatedCategories.map(cat => ({
+        id: cat.id,
+        category: cat.category,
+        skills: cat.skills.map(skillName => ({
+          id: Date.now().toString() + Math.random(),
+          name: skillName,
+          level: 'Intermediate'
+        }))
+      }))
+    });
   };
 
   const addSkillToCategory = (categoryId: string) => {
     const skillInput = newSkillInputs[categoryId] || '';
     if (!skillInput.trim()) return;
 
-    setSkillCategories(skillCategories.map(cat =>
+    const updatedCategories = skillCategories.map(cat =>
       cat.id === categoryId ? { ...cat, skills: [...cat.skills, skillInput.trim()] } : cat
-    ));
-    
-    // Update resume data with all skills
-    const allSkills = skillCategories.flatMap(cat => 
-      cat.id === categoryId ? [...cat.skills, skillInput.trim()] : cat.skills
     );
-    updateResumeData({ skills: allSkills });
+    setSkillCategories(updatedCategories);
+    
+    // Update resume data with the actual category structure
+    const updatedSkillCategories = updatedCategories.map(cat => ({
+      id: cat.id,
+      category: cat.category,
+      skills: cat.skills.map(skillName => ({
+        id: Date.now().toString() + Math.random(),
+        name: skillName,
+        level: 'Intermediate'
+      }))
+    }));
+    
+    updateResumeData({
+      skillCategories: updatedSkillCategories
+    });
 
     // Clear input
     setNewSkillInputs({ ...newSkillInputs, [categoryId]: '' });
   };
 
   const removeSkillFromCategory = (categoryId: string, skillIndex: number) => {
-    setSkillCategories(skillCategories.map(cat =>
+    const updatedCategories = skillCategories.map(cat =>
       cat.id === categoryId ? { ...cat, skills: cat.skills.filter((_, i) => i !== skillIndex) } : cat
-    ));
-
-    // Update resume data
-    const allSkills = skillCategories.flatMap(cat =>
-      cat.id === categoryId ? cat.skills.filter((_, i) => i !== skillIndex) : cat.skills
     );
-    updateResumeData({ skills: allSkills });
+    setSkillCategories(updatedCategories);
+
+    // Update resume data with the actual category structure
+    const updatedSkillCategories = updatedCategories.map(cat => ({
+      id: cat.id,
+      category: cat.category,
+      skills: cat.skills.map(skillName => ({
+        id: Date.now().toString() + Math.random(),
+        name: skillName,
+        level: 'Intermediate'
+      }))
+    }));
+    
+    updateResumeData({
+      skillCategories: updatedSkillCategories
+    });
   };
 
   const handleSkillInputChange = (categoryId: string, value: string) => {
@@ -448,12 +522,6 @@ export function BuilderPage() {
                                     </div>
                                     <button
                                       onClick={() => removeSkillCategory(category.id)}
-                                      className="text-gray-400 hover:text-red-600 transition-colors"
-                                    >
-                                      <EyeOff className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => removeSkillCategory(category.id)}
                                       className="text-red-600 hover:text-red-700 transition-colors"
                                     >
                                       <Trash2 className="w-4 h-4" />
@@ -601,12 +669,72 @@ export function BuilderPage() {
                   >
                     <ZoomIn className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                   </button>
+                  <button
+                    onClick={async () => {
+                      if (downloading) return;
+                      setDownloading(true);
+                      const prevZoom = zoomLevel;
+                      try {
+                        // Temporarily set zoom to 100% for best quality export
+                        if (prevZoom !== 100) {
+                          setZoomLevel(100);
+                          await new Promise(r => setTimeout(r, 50));
+                        }
+
+                        const el = document.getElementById('resume-page');
+                        if (!el) throw new Error('Resume element not found');
+
+                        const canvas = await html2canvas(el, {
+                          scale: 2,
+                          backgroundColor: '#ffffff',
+                          useCORS: true,
+                        });
+                        const imgData = canvas.toDataURL('image/png');
+
+                        const pdf = new jsPDF('p', 'mm', 'a4');
+                        const pageWidth = pdf.internal.pageSize.getWidth();
+                        const pageHeight = pdf.internal.pageSize.getHeight();
+
+                        const imgWidth = pageWidth;
+                        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                        let heightLeft = imgHeight;
+                        let position = 0;
+
+                        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                        heightLeft -= pageHeight;
+
+                        while (heightLeft > 0) {
+                          position = position - pageHeight;
+                          pdf.addPage();
+                          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                          heightLeft -= pageHeight;
+                        }
+
+                        pdf.save(`${resumeData.personalInfo.fullName || 'resume'}.pdf`);
+                      } catch (e) {
+                        console.error('PDF export failed', e);
+                        alert('Failed to generate PDF.');
+                      } finally {
+                        // Restore previous zoom
+                        setZoomLevel(prevZoom);
+                        setDownloading(false);
+                      }
+                    }}
+                    className="ml-2 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={downloading}
+                    title="Download PDF"
+                  >
+                    <Download className="w-4 h-4" />
+                    {downloading ? 'Preparing…' : 'Download PDF'}
+                  </button>
                 </div>
               </div>
 
               {/* Preview Content */}
               <div className="flex-1 overflow-auto p-4 bg-gray-100 dark:bg-gray-900">
-                <div 
+                  <div 
+                    id="resume-page"
                   className="mx-auto bg-white shadow-2xl transition-transform duration-200"
                   style={{ 
                     transform: `scale(${zoomLevel / 100})`,

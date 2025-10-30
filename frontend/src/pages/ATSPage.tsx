@@ -1,12 +1,41 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, CheckCircle, AlertCircle, TrendingUp, MessageSquare, FileText, Send, Check, Info } from 'lucide-react';
+import { Upload, CheckCircle, AlertCircle, TrendingUp, FileText, Send, Check, Info } from 'lucide-react';
 
 interface ATSResult {
   atsScore: number;
+  grade: string;
   strengths: string[];
   suggestions: string[];
   keywordsFound: string[];
+  detailedAnalysis?: {
+    contact?: { score: number; maxScore: number };
+    summary?: { score: number; maxScore: number };
+    experience?: { score: number; maxScore: number };
+    skills?: { score: number; maxScore: number };
+    actionWords?: { score: number; maxScore: number; verbCount: number; achievementCount: number };
+    formatting?: { score: number; maxScore: number };
+    education?: { score: number; maxScore: number };
+    length?: { score: number; maxScore: number; wordCount: number };
+    jobMatch?: { score: number; maxScore: number; matchRatio?: string };
+  };
+  keyMetrics?: {
+    skillsCoverage: { percentage: number; label: string; icon: string; color: string };
+    formatting: { percentage: number; label: string; icon: string; color: string };
+    actionVerbs: { count: number; label: string; icon: string; color: string };
+    achievements: { count: number; label: string; icon: string; color: string };
+    wordCount: { count: number; label: string; icon: string; color: string };
+    jobMatch?: { percentage: number; label: string; icon: string; color: string } | null;
+  };
+  improvementPotential?: {
+    possibleGain: number;
+    topOpportunities: Array<{
+      category: string;
+      currentScore: number;
+      maxScore: number;
+      potentialPoints: number;
+    }>;
+  };
   questions: {
     hr: string[];
     technical: string[];
@@ -23,6 +52,17 @@ export function ATSPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ATSResult | null>(null);
   const [activeTab, setActiveTab] = useState<AnalysisTab>('summary');
+  const [loadingStage, setLoadingStage] = useState(0);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+
+  const loadingStages = [
+    { icon: '📄', text: 'Uploading resume...', duration: 1000 },
+    { icon: '🔍', text: 'Extracting text from document...', duration: 1200 },
+    { icon: '🎯', text: 'Identifying skills and technologies...', duration: 1500 },
+    { icon: '💼', text: 'Analyzing work experience...', duration: 1200 },
+    { icon: '📊', text: 'Calculating ATS compatibility...', duration: 1100 },
+    { icon: '✨', text: 'Generating personalized suggestions...', duration: 1000 }
+  ];
 
   // Load saved data from sessionStorage on mount
   useEffect(() => {
@@ -59,29 +99,92 @@ export function ATSPage() {
   const handleAnalyze = async () => {
     if (!file) return;
     setLoading(true);
+    setLoadingStage(0);
+    setLoadingProgress(0);
+    setResult(null);
+
     try {
+      // Simulate staged loading with animations
+      const totalDuration = loadingStages.reduce((sum, stage) => sum + stage.duration, 0);
+      let elapsed = 0;
+
+      // Start the actual API call
       const form = new FormData();
       form.append('resume', file as Blob, (file as File).name);
       form.append('jobDescription', jobDescription || '');
 
-      const res = await fetch('http://localhost:5001/api/ats/analyze', {
+      const apiPromise = fetch('http://localhost:5001/api/ats/analyze', {
         method: 'POST',
         body: form,
       });
+
+      // Animate through stages
+      for (let i = 0; i < loadingStages.length; i++) {
+        setLoadingStage(i);
+        const stageDuration = loadingStages[i].duration;
+        const startProgress = (elapsed / totalDuration) * 100;
+        const endProgress = ((elapsed + stageDuration) / totalDuration) * 100;
+
+        // Animate progress for this stage
+        const steps = 20;
+        const stepDuration = stageDuration / steps;
+        for (let step = 0; step <= steps; step++) {
+          await new Promise(resolve => setTimeout(resolve, stepDuration));
+          const progress = startProgress + ((endProgress - startProgress) * (step / steps));
+          setLoadingProgress(progress);
+        }
+
+        elapsed += stageDuration;
+      }
+
+      // Wait for API response
+      const res = await apiPromise;
       const json = await res.json();
+      
       if (json.ok) {
+        // Complete the progress bar
+        setLoadingProgress(100);
+        await new Promise(resolve => setTimeout(resolve, 300));
+
         const analysisResult = {
           atsScore: json.atsScore,
+          grade: json.grade || 'N/A',
           strengths: json.strengths,
           suggestions: json.suggestions,
           keywordsFound: json.keywordsFound,
-          questions: json.questions
+          detailedAnalysis: json.detailedAnalysis || {},
+          keyMetrics: json.keyMetrics || null,
+          improvementPotential: json.improvementPotential || null,
+          questions: json.questions,
+          candidateName: json.candidateName || null
         };
         setResult(analysisResult);
         
         // Save to sessionStorage
-        sessionStorage.setItem('atsAnalysisResult', JSON.stringify(analysisResult));
+  sessionStorage.setItem('atsAnalysisResult', JSON.stringify(analysisResult));
+  if (json.candidateName) sessionStorage.setItem('candidateName', json.candidateName);
         sessionStorage.setItem('atsJobDescription', jobDescription);
+        
+        // Save ATS score to backend (if we have a resume ID)
+        const resumeId = sessionStorage.getItem('currentResumeId');
+        if (resumeId) {
+          try {
+            const token = localStorage.getItem('authToken');
+            await fetch(`http://localhost:5001/api/resume/${resumeId}/ats-score`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                atsScore: json.atsScore,
+                grade: json.grade
+              })
+            });
+          } catch (err) {
+            console.error('Failed to save ATS score:', err);
+          }
+        }
       } else {
         console.error('analyze response', json);
         alert('Analysis failed');
@@ -91,18 +194,23 @@ export function ATSPage() {
       alert('Error calling ATS analyze — is backend running?');
     } finally {
       setLoading(false);
+      setLoadingStage(0);
+      setLoadingProgress(0);
     }
   };
 
   const handleInterviewPrep = () => {
     if (result) {
-      // Store both questions and ATS analysis data
+      // Store both questions and complete ATS analysis data
       sessionStorage.setItem('interviewPrepQuestions', JSON.stringify(result.questions));
       sessionStorage.setItem('atsAnalysisData', JSON.stringify({
-        atsScore: result.atsScore,
+        score: result.atsScore,
+        grade: result.grade,
         strengths: result.strengths,
         suggestions: result.suggestions,
-        keywordsFound: result.keywordsFound
+        keywordsFound: result.keywordsFound,
+        detailedAnalysis: result.detailedAnalysis,
+        improvementPotential: result.improvementPotential
       }));
       window.location.hash = 'questions';
     }
@@ -110,28 +218,21 @@ export function ATSPage() {
 
   const handleImproveResume = () => {
     if (result) {
-      // Store ATS analysis data for the improvement page
+      // Store complete ATS analysis data for the improvement page
       sessionStorage.setItem('atsAnalysisData', JSON.stringify({
-        atsScore: result.atsScore,
+        score: result.atsScore,
+        grade: result.grade,
         strengths: result.strengths,
         suggestions: result.suggestions,
-        keywordsFound: result.keywordsFound
+        keywordsFound: result.keywordsFound,
+        detailedAnalysis: result.detailedAnalysis,
+        improvementPotential: result.improvementPotential
       }));
       window.location.hash = 'improvement';
     }
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-green-600 dark:text-green-400';
-    if (score >= 60) return 'text-yellow-600 dark:text-yellow-400';
-    return 'text-red-600 dark:text-red-400';
-  };
-
-  const getScoreBackground = (score: number) => {
-    if (score >= 80) return 'bg-green-100 dark:bg-green-900/20 border-green-300 dark:border-green-800';
-    if (score >= 60) return 'bg-yellow-100 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-800';
-    return 'bg-red-100 dark:bg-red-900/20 border-red-300 dark:border-red-800';
-  };
+  // Utility functions removed if unused to satisfy typechecking
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pt-20">
@@ -196,8 +297,21 @@ export function ATSPage() {
                   disabled={!file || loading}
                   className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2"
                 >
-                  <Send className="w-5 h-5" />
-                  {loading ? 'Analyzing...' : 'Send Resume'}
+                  {loading ? (
+                    <>
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
+                      />
+                      <span>Analyzing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-5 h-5" />
+                      <span>Send Resume</span>
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -226,41 +340,163 @@ export function ATSPage() {
               </div>
 
               {/* Key Metrics */}
-              {result && (
+              {result && result.keyMetrics && (
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                     Key Metrics
                   </h3>
                   <div className="space-y-3">
-                    <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                      <div className="w-10 h-10 bg-green-100 dark:bg-green-900/40 rounded-lg flex items-center justify-center">
-                        <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    {/* Skills Coverage */}
+                    <div className={`flex items-center gap-3 p-3 rounded-xl ${
+                      result.keyMetrics.skillsCoverage.color === 'green' ? 'bg-green-50 dark:bg-green-900/20' :
+                      result.keyMetrics.skillsCoverage.color === 'yellow' ? 'bg-yellow-50 dark:bg-yellow-900/20' :
+                      'bg-red-50 dark:bg-red-900/20'
+                    }`}>
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        result.keyMetrics.skillsCoverage.color === 'green' ? 'bg-green-100 dark:bg-green-900/40' :
+                        result.keyMetrics.skillsCoverage.color === 'yellow' ? 'bg-yellow-100 dark:bg-yellow-900/40' :
+                        'bg-red-100 dark:bg-red-900/40'
+                      }`}>
+                        <span className="text-xl">{result.keyMetrics.skillsCoverage.icon}</span>
                       </div>
                       <div className="flex-1">
-                        <p className="text-xs text-gray-600 dark:text-gray-400">Keyword Match</p>
-                        <p className="text-lg font-bold text-gray-900 dark:text-white">92%</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">{result.keyMetrics.skillsCoverage.label}</p>
+                        <p className={`text-lg font-bold ${
+                          result.keyMetrics.skillsCoverage.color === 'green' ? 'text-green-700 dark:text-green-400' :
+                          result.keyMetrics.skillsCoverage.color === 'yellow' ? 'text-yellow-700 dark:text-yellow-400' :
+                          'text-red-700 dark:text-red-400'
+                        }`}>
+                          {result.keyMetrics.skillsCoverage.percentage}%
+                        </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl">
-                      <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/40 rounded-lg flex items-center justify-center">
-                        <FileText className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                    {/* Formatting */}
+                    <div className={`flex items-center gap-3 p-3 rounded-xl ${
+                      result.keyMetrics.formatting.color === 'green' ? 'bg-green-50 dark:bg-green-900/20' :
+                      result.keyMetrics.formatting.color === 'yellow' ? 'bg-yellow-50 dark:bg-yellow-900/20' :
+                      'bg-red-50 dark:bg-red-900/20'
+                    }`}>
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        result.keyMetrics.formatting.color === 'green' ? 'bg-green-100 dark:bg-green-900/40' :
+                        result.keyMetrics.formatting.color === 'yellow' ? 'bg-yellow-100 dark:bg-yellow-900/40' :
+                        'bg-red-100 dark:bg-red-900/40'
+                      }`}>
+                        <span className="text-xl">{result.keyMetrics.formatting.icon}</span>
                       </div>
                       <div className="flex-1">
-                        <p className="text-xs text-gray-600 dark:text-gray-400">Formatting</p>
-                        <p className="text-lg font-bold text-gray-900 dark:text-white">78%</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">{result.keyMetrics.formatting.label}</p>
+                        <p className={`text-lg font-bold ${
+                          result.keyMetrics.formatting.color === 'green' ? 'text-green-700 dark:text-green-400' :
+                          result.keyMetrics.formatting.color === 'yellow' ? 'text-yellow-700 dark:text-yellow-400' :
+                          'text-red-700 dark:text-red-400'
+                        }`}>
+                          {result.keyMetrics.formatting.percentage}%
+                        </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                      <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center">
-                        <CheckCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    {/* Action Verbs */}
+                    <div className={`flex items-center gap-3 p-3 rounded-xl ${
+                      result.keyMetrics.actionVerbs.color === 'green' ? 'bg-green-50 dark:bg-green-900/20' :
+                      result.keyMetrics.actionVerbs.color === 'yellow' ? 'bg-yellow-50 dark:bg-yellow-900/20' :
+                      'bg-red-50 dark:bg-red-900/20'
+                    }`}>
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        result.keyMetrics.actionVerbs.color === 'green' ? 'bg-green-100 dark:bg-green-900/40' :
+                        result.keyMetrics.actionVerbs.color === 'yellow' ? 'bg-yellow-100 dark:bg-yellow-900/40' :
+                        'bg-red-100 dark:bg-red-900/40'
+                      }`}>
+                        <span className="text-xl">{result.keyMetrics.actionVerbs.icon}</span>
                       </div>
                       <div className="flex-1">
-                        <p className="text-xs text-gray-600 dark:text-gray-400">Action Verbs</p>
-                        <p className="text-lg font-bold text-gray-900 dark:text-white">88%</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">{result.keyMetrics.actionVerbs.label}</p>
+                        <p className={`text-lg font-bold ${
+                          result.keyMetrics.actionVerbs.color === 'green' ? 'text-green-700 dark:text-green-400' :
+                          result.keyMetrics.actionVerbs.color === 'yellow' ? 'text-yellow-700 dark:text-yellow-400' :
+                          'text-red-700 dark:text-red-400'
+                        }`}>
+                          {result.keyMetrics.actionVerbs.count} verbs
+                        </p>
                       </div>
                     </div>
+
+                    {/* Achievements */}
+                    <div className={`flex items-center gap-3 p-3 rounded-xl ${
+                      result.keyMetrics.achievements.color === 'green' ? 'bg-green-50 dark:bg-green-900/20' :
+                      result.keyMetrics.achievements.color === 'yellow' ? 'bg-yellow-50 dark:bg-yellow-900/20' :
+                      'bg-red-50 dark:bg-red-900/20'
+                    }`}>
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        result.keyMetrics.achievements.color === 'green' ? 'bg-green-100 dark:bg-green-900/40' :
+                        result.keyMetrics.achievements.color === 'yellow' ? 'bg-yellow-100 dark:bg-yellow-900/40' :
+                        'bg-red-100 dark:bg-red-900/40'
+                      }`}>
+                        <span className="text-xl">{result.keyMetrics.achievements.icon}</span>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-600 dark:text-gray-400">{result.keyMetrics.achievements.label}</p>
+                        <p className={`text-lg font-bold ${
+                          result.keyMetrics.achievements.color === 'green' ? 'text-green-700 dark:text-green-400' :
+                          result.keyMetrics.achievements.color === 'yellow' ? 'text-yellow-700 dark:text-yellow-400' :
+                          'text-red-700 dark:text-red-400'
+                        }`}>
+                          {result.keyMetrics.achievements.count} metrics
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Word Count */}
+                    <div className={`flex items-center gap-3 p-3 rounded-xl ${
+                      result.keyMetrics.wordCount.color === 'green' ? 'bg-green-50 dark:bg-green-900/20' :
+                      result.keyMetrics.wordCount.color === 'yellow' ? 'bg-yellow-50 dark:bg-yellow-900/20' :
+                      'bg-red-50 dark:bg-red-900/20'
+                    }`}>
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        result.keyMetrics.wordCount.color === 'green' ? 'bg-green-100 dark:bg-green-900/40' :
+                        result.keyMetrics.wordCount.color === 'yellow' ? 'bg-yellow-100 dark:bg-yellow-900/40' :
+                        'bg-red-100 dark:bg-red-900/40'
+                      }`}>
+                        <span className="text-xl">{result.keyMetrics.wordCount.icon}</span>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-600 dark:text-gray-400">{result.keyMetrics.wordCount.label}</p>
+                        <p className={`text-lg font-bold ${
+                          result.keyMetrics.wordCount.color === 'green' ? 'text-green-700 dark:text-green-400' :
+                          result.keyMetrics.wordCount.color === 'yellow' ? 'text-yellow-700 dark:text-yellow-400' :
+                          'text-red-700 dark:text-red-400'
+                        }`}>
+                          {result.keyMetrics.wordCount.count} words
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Job Match - Only if available */}
+                    {result.keyMetrics.jobMatch && (
+                      <div className={`flex items-center gap-3 p-3 rounded-xl ${
+                        result.keyMetrics.jobMatch.color === 'green' ? 'bg-green-50 dark:bg-green-900/20' :
+                        result.keyMetrics.jobMatch.color === 'yellow' ? 'bg-yellow-50 dark:bg-yellow-900/20' :
+                        'bg-red-50 dark:bg-red-900/20'
+                      }`}>
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                          result.keyMetrics.jobMatch.color === 'green' ? 'bg-green-100 dark:bg-green-900/40' :
+                          result.keyMetrics.jobMatch.color === 'yellow' ? 'bg-yellow-100 dark:bg-yellow-900/40' :
+                          'bg-red-100 dark:bg-red-900/40'
+                        }`}>
+                          <span className="text-xl">{result.keyMetrics.jobMatch.icon}</span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-600 dark:text-gray-400">{result.keyMetrics.jobMatch.label}</p>
+                          <p className={`text-lg font-bold ${
+                            result.keyMetrics.jobMatch.color === 'green' ? 'text-green-700 dark:text-green-400' :
+                            result.keyMetrics.jobMatch.color === 'yellow' ? 'text-yellow-700 dark:text-yellow-400' :
+                            'text-red-700 dark:text-red-400'
+                          }`}>
+                            {result.keyMetrics.jobMatch.percentage}%
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -275,10 +511,18 @@ export function ATSPage() {
                     <div className="flex items-start justify-between mb-6">
                       <div className="flex-1">
                         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                          Excellent ATS Score!
+                          {result.grade} ATS Score!
                         </h2>
                         <p className="text-gray-600 dark:text-gray-400 text-sm">
-                          Great work! Your resume is well-optimized and has a high chance of passing through Applicant Tracking Systems.
+                          {result.atsScore >= 90 
+                            ? 'Outstanding! Your resume is exceptionally well-optimized and will excel with ATS systems.'
+                            : result.atsScore >= 80
+                            ? 'Great work! Your resume is very well-optimized with a strong chance of passing ATS.'
+                            : result.atsScore >= 70
+                            ? 'Good progress! Your resume is solid. A few targeted improvements will make it excellent.'
+                            : result.atsScore >= 60
+                            ? 'Fair resume with potential. Focus on the critical suggestions to improve ATS compatibility.'
+                            : 'Your resume needs significant attention. Follow the critical improvements below to boost your chances.'}
                         </p>
                       </div>
                       
@@ -364,42 +608,97 @@ export function ATSPage() {
                       <div className="space-y-6">
                         <div>
                           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                            Summary of Your Analysis
+                            Analysis Overview
                           </h3>
                           <p className="text-gray-600 dark:text-gray-400 text-sm mb-6">
-                            Your resume demonstrates strong alignment with accepted keyword optimization for the target role. You've effectively used action verbs to highlight your accomplishments. However, minor improvements in formatting consistency and expanding on the impact of your work could execute a further...
+                            Your resume scored <strong>{result.atsScore}/100</strong> ({result.grade}). 
+                            {result.improvementPotential && result.improvementPotential.possibleGain > 0 && (
+                              <> You can gain up to <strong>{result.improvementPotential.possibleGain} more points</strong> by addressing the areas below.</>
+                            )}
                           </p>
                         </div>
 
-                        {/* Strengths */}
-                        {result.strengths.length > 0 && (
-                          <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
-                            <div className="flex items-start gap-3 mb-3">
-                              <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5" />
-                              <div>
-                                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                                  Strengths:
+                        {/* Improvement Opportunities */}
+                        {result.improvementPotential && result.improvementPotential.topOpportunities.length > 0 && (
+                          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 mb-4">
+                            <div className="flex items-start gap-3">
+                              <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-gray-900 dark:text-white mb-3">
+                                  Top Improvement Opportunities:
                                 </h4>
-                                <p className="text-sm text-gray-700 dark:text-gray-300">
-                                  {result.strengths[0] || 'You have a great set of industry standard keywords and powerful action verbs.'}
-                                </p>
+                                <div className="space-y-2">
+                                  {result.improvementPotential.topOpportunities.map((opp, idx) => (
+                                    <div key={idx} className="flex items-center justify-between text-sm">
+                                      <span className="text-gray-700 dark:text-gray-300">
+                                        {opp.category}: {opp.currentScore}/{opp.maxScore}
+                                      </span>
+                                      <span className="text-blue-600 dark:text-blue-400 font-medium">
+                                        +{opp.potentialPoints} pts
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
                             </div>
                           </div>
                         )}
 
-                        {/* Areas for Improvement */}
+                        {/* Strengths */}
+                        {result.strengths.length > 0 && (
+                          <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+                            <div className="flex items-start gap-3">
+                              <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
+                                  Strengths ({result.strengths.length}):
+                                </h4>
+                                <ul className="space-y-1.5">
+                                  {result.strengths.map((strength, idx) => (
+                                    <li key={idx} className="text-sm text-gray-700 dark:text-gray-300 flex items-start gap-2">
+                                      <Check className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                                      <span>{strength}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Suggestions */}
                         {result.suggestions.length > 0 && (
                           <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-200 dark:border-orange-800">
                             <div className="flex items-start gap-3">
-                              <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400 mt-0.5" />
-                              <div>
+                              <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1">
                                 <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                                  Areas for Improvement:
+                                  Suggestions for Improvement ({result.suggestions.length}):
                                 </h4>
-                                <p className="text-sm text-gray-700 dark:text-gray-300">
-                                  {result.suggestions[0] || 'Ensure consistent date formatting across all sections and quantify more of your achievements with specific metrics.'}
-                                </p>
+                                <ul className="space-y-2">
+                                  {result.suggestions.map((suggestion, idx) => {
+                                    const isCritical = suggestion.includes('⚠️') || suggestion.includes('CRITICAL');
+                                    const isPriority = suggestion.includes('⚡') || suggestion.includes('PRIORITY');
+                                    const isGood = suggestion.includes('✓') || suggestion.includes('GOOD');
+                                    const isExcellent = suggestion.includes('🎯') || suggestion.includes('EXCELLENT');
+                                    
+                                    return (
+                                      <li 
+                                        key={idx} 
+                                        className={`text-sm flex items-start gap-2 ${
+                                          isCritical ? 'text-red-700 dark:text-red-400 font-medium' :
+                                          isPriority ? 'text-orange-700 dark:text-orange-400 font-medium' :
+                                          isGood ? 'text-green-700 dark:text-green-400' :
+                                          isExcellent ? 'text-blue-700 dark:text-blue-400' :
+                                          'text-gray-700 dark:text-gray-300'
+                                        }`}
+                                      >
+                                        <span className="mt-0.5">•</span>
+                                        <span>{suggestion}</span>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
                               </div>
                             </div>
                           </div>
@@ -492,6 +791,144 @@ export function ATSPage() {
             </div>
           </div>
         </motion.div>
+
+        {/* Loading Modal with Animations */}
+        {loading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", duration: 0.5 }}
+              className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 max-w-md w-full mx-4 border border-gray-200 dark:border-gray-700"
+            >
+              {/* Header */}
+              <div className="text-center mb-8">
+                <motion.div
+                  animate={{ 
+                    scale: [1, 1.1, 1],
+                    rotate: [0, 5, -5, 0]
+                  }}
+                  transition={{ 
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                  className="text-6xl mb-4"
+                >
+                  {loadingStages[loadingStage]?.icon || '📄'}
+                </motion.div>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                  Analyzing Your Resume
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400">
+                  This will take just a moment...
+                </p>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="mb-6">
+                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${loadingProgress}%` }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </div>
+                <div className="flex justify-between items-center mt-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {Math.round(loadingProgress)}%
+                  </span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {loadingStage + 1} / {loadingStages.length}
+                  </span>
+                </div>
+              </div>
+
+              {/* Current Stage */}
+              <motion.div
+                key={loadingStage}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3 }}
+                className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 mb-6"
+              >
+                <div className="flex items-center gap-3">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  >
+                    <div className="w-6 h-6 border-3 border-blue-500 border-t-transparent rounded-full" />
+                  </motion.div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {loadingStages[loadingStage]?.text || 'Processing...'}
+                  </p>
+                </div>
+              </motion.div>
+
+              {/* Stages Checklist */}
+              <div className="space-y-2">
+                {loadingStages.map((stage, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0.3 }}
+                    animate={{ 
+                      opacity: index <= loadingStage ? 1 : 0.3,
+                      x: index === loadingStage ? [0, 5, 0] : 0
+                    }}
+                    transition={{ 
+                      opacity: { duration: 0.3 },
+                      x: { duration: 0.5, repeat: index === loadingStage ? Infinity : 0 }
+                    }}
+                    className="flex items-center gap-3"
+                  >
+                    {index < loadingStage ? (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0"
+                      >
+                        <Check className="w-3 h-3 text-white" />
+                      </motion.div>
+                    ) : index === loadingStage ? (
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-600 rounded-full flex-shrink-0" />
+                    )}
+                    <span className={`text-xs ${
+                      index <= loadingStage 
+                        ? 'text-gray-900 dark:text-white font-medium' 
+                        : 'text-gray-500 dark:text-gray-500'
+                    }`}>
+                      {stage.text}
+                    </span>
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* Fun Fact */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 2 }}
+                className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/10 dark:to-purple-900/10 rounded-xl border border-blue-200 dark:border-blue-800"
+              >
+                <p className="text-xs text-gray-600 dark:text-gray-400 text-center">
+                  💡 <span className="font-medium">Did you know?</span> 75% of resumes are rejected by ATS systems before reaching human eyes!
+                </p>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Download, Plus, Trash2, Upload, User, Briefcase, GraduationCap, Award, FolderGit2, ChevronDown, ChevronUp, Link, ZoomIn, ZoomOut } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { Download, Plus, Trash2, Upload, User, Briefcase, GraduationCap, Award, FolderGit2, ChevronDown, ChevronUp, Link, Search, Sparkles, Edit, Eye } from 'lucide-react';
 import { useResume } from '../contexts/ResumeContext';
 import { ResumePreview } from '../components/ResumePreview';
 
@@ -8,25 +8,70 @@ type Section = 'personal' | 'experience' | 'education' | 'skills' | 'projects' |
 
 export function BuilderPage() {
   const { resumeData, updateResumeData } = useResume();
-  const [expandedSections, setExpandedSections] = useState<Record<Section, boolean>>({
-    personal: true,
-    experience: false,
-    education: false,
-    skills: false,
-    projects: false,
-    custom: false,
-  });
-  const [zoomLevel, setZoomLevel] = useState(100);
+  // Removed unused UI states to satisfy typechecking
   const [selectedExperienceId, setSelectedExperienceId] = useState<string | null>(null);
   const [selectedEducationId, setSelectedEducationId] = useState<string | null>(null);
   const [isEditingEducation, setIsEditingEducation] = useState(false);
+  const [activeSection, setActiveSection] = useState<Section>('personal');
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const [skillSearchQuery, setSkillSearchQuery] = useState('');
+  const [expandedSkillCategories, setExpandedSkillCategories] = useState({
+    technical: true,
+    soft: true,
+    languages: true,
+  });
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [isEditingProject, setIsEditingProject] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [newSkillInput, setNewSkillInput] = useState({
+    technical: '',
+    soft: '',
+    languages: '',
+  });
 
-  const toggleSection = (section: Section) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
+  // Calculate profile completion percentage
+  const profileCompletion = useMemo(() => {
+    let total = 0;
+    let filled = 0;
+
+    // Personal Info (20%)
+    total += 6;
+    if (resumeData.personalInfo.fullName) filled++;
+    if (resumeData.personalInfo.email) filled++;
+    if (resumeData.personalInfo.phone) filled++;
+    if (resumeData.personalInfo.location) filled++;
+    if (resumeData.personalInfo.linkedin) filled++;
+    if (resumeData.personalInfo.portfolio) filled++;
+
+    // Summary (10%)
+    total += 1;
+    if (resumeData.summary) filled++;
+
+    // Education (20%)
+    total += 1;
+    if (resumeData.education.length > 0) filled++;
+
+    // Experience (20%)
+    total += 1;
+    if (resumeData.experience.length > 0) filled++;
+
+    // Skills (15%)
+    total += 1;
+    if (resumeData.skillsV2 && (
+      resumeData.skillsV2.technical.length > 0 ||
+      resumeData.skillsV2.soft.length > 0 ||
+      resumeData.skillsV2.languages.length > 0
+    )) filled++;
+
+    // Projects (15%)
+    total += 1;
+    if (resumeData.projects.length > 0) filled++;
+
+    return Math.round((filled / total) * 100);
+  }, [resumeData]);
+
+  // Removed unused toggleSection
 
   const sections = [
     { id: 'personal' as Section, label: 'Personal Details', icon: User },
@@ -94,17 +139,7 @@ export function BuilderPage() {
     });
   };
 
-  const addProject = () => {
-    updateResumeData({
-      projects: [...resumeData.projects, {
-        id: Date.now().toString(),
-        name: '',
-        description: '',
-        technologies: '',
-        link: '',
-      }],
-    });
-  };
+  // Removed unused addProject
 
   const removeProject = (id: string) => {
     updateResumeData({
@@ -120,18 +155,7 @@ export function BuilderPage() {
     });
   };
 
-  const addSkill = () => {
-    const skill = prompt('Enter a skill:');
-    if (skill?.trim()) {
-      updateResumeData({ skills: [...resumeData.skills, skill.trim()] });
-    }
-  };
-
-  const removeSkill = (index: number) => {
-    updateResumeData({
-      skills: resumeData.skills.filter((_, i) => i !== index),
-    });
-  };
+  // Removed legacy skills helpers (unused)
 
   // New Skills V2 functions
   const addSkillV2 = (category: 'technical' | 'soft' | 'languages', name: string, level: string = 'Beginner') => {
@@ -142,30 +166,42 @@ export function BuilderPage() {
     };
     
     const currentSkills = resumeData.skillsV2 || { technical: [], soft: [], languages: [] };
+    const categorySkills = currentSkills[category] || [];
+    
     updateResumeData({
       skillsV2: {
-        ...currentSkills,
-        [category]: [...currentSkills[category], newSkill],
+        technical: currentSkills.technical || [],
+        soft: currentSkills.soft || [],
+        languages: currentSkills.languages || [],
+        [category]: [...categorySkills, newSkill],
       },
     });
   };
 
   const removeSkillV2 = (category: 'technical' | 'soft' | 'languages', id: string) => {
     const currentSkills = resumeData.skillsV2 || { technical: [], soft: [], languages: [] };
+    const categorySkills = currentSkills[category] || [];
+    
     updateResumeData({
       skillsV2: {
-        ...currentSkills,
-        [category]: currentSkills[category].filter(skill => skill.id !== id),
+        technical: currentSkills.technical || [],
+        soft: currentSkills.soft || [],
+        languages: currentSkills.languages || [],
+        [category]: categorySkills.filter(skill => skill.id !== id),
       },
     });
   };
 
   const updateSkillV2 = (category: 'technical' | 'soft' | 'languages', id: string, field: 'name' | 'level', value: string) => {
     const currentSkills = resumeData.skillsV2 || { technical: [], soft: [], languages: [] };
+    const categorySkills = currentSkills[category] || [];
+    
     updateResumeData({
       skillsV2: {
-        ...currentSkills,
-        [category]: currentSkills[category].map(skill =>
+        technical: currentSkills.technical || [],
+        soft: currentSkills.soft || [],
+        languages: currentSkills.languages || [],
+        [category]: categorySkills.map(skill =>
           skill.id === id ? { ...skill, [field]: value } : skill
         ),
       },
@@ -190,41 +226,12 @@ export function BuilderPage() {
     }
   };
 
-  const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingResume(true);
-    try {
-      const form = new FormData();
-      form.append('resume', file as Blob, file.name);
-      form.append('jobDescription', '');
-
-      const res = await fetch('http://localhost:5001/api/ats/analyze', {
-        method: 'POST',
-        body: form,
-      });
-      const json = await res.json();
-      if (json.ok && json.questions) {
-        // Store questions in sessionStorage so Interview Prep page can display them
-        sessionStorage.setItem('interviewPrepQuestions', JSON.stringify(json.questions));
-        // Redirect to Interview Prep page
-        window.location.hash = 'questions';
-      } else {
-        console.error('analyze upload failed', json);
-        alert('Resume analysis failed');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Error uploading resume — is backend running?');
-    } finally {
-      setUploadingResume(false);
-    }
-  };
+  // Removed unused handleResumeUpload
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pt-20">
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid lg:grid-cols-[280px,1fr] gap-8">
+      <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid xl:grid-cols-[280px,1fr,500px] lg:grid-cols-[280px,1fr] gap-8">
           {/* Left Sidebar */}
           <aside className="lg:sticky lg:top-24 h-fit">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
@@ -958,26 +965,9 @@ export function BuilderPage() {
 
                 {activeSection === 'skills' && (
                   <div>
-                    <div className="flex items-center justify-between mb-6">
-                      <div>
-                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Manage Your Skills</h2>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Add relevant skills and set your proficiency. We'll help you organize them for maximum impact.</p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          const category = prompt('Select category (technical/soft/languages):') as 'technical' | 'soft' | 'languages';
-                          if (category && ['technical', 'soft', 'languages'].includes(category)) {
-                            const skillName = prompt('Enter skill name:');
-                            if (skillName?.trim()) {
-                              addSkillV2(category, skillName.trim(), 'Beginner');
-                            }
-                          }
-                        }}
-                        className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors flex items-center gap-2"
-                      >
-                        <Plus className="w-5 h-5" />
-                        Add Skill
-                      </button>
+                    <div className="mb-6">
+                      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Manage Your Skills</h2>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Add relevant skills and set your proficiency. Organize them by category for maximum impact. Type a skill name and press Enter or click Add.</p>
                     </div>
 
                     {/* Search Bar */}
@@ -1048,17 +1038,34 @@ export function BuilderPage() {
                                 </div>
                               ))
                             )}
-                            <button
-                              onClick={() => {
-                                const skillName = prompt('Enter technical skill name:');
-                                if (skillName?.trim()) {
-                                  addSkillV2('technical', skillName.trim(), 'Beginner');
-                                }
-                              }}
-                              className="w-full py-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
-                            >
-                              + Add Technical Skill
-                            </button>
+                            
+                            {/* Add Technical Skill Input */}
+                            <div className="flex gap-2 pt-2">
+                              <input
+                                type="text"
+                                placeholder="Enter technical skill name..."
+                                value={newSkillInput.technical}
+                                onChange={e => setNewSkillInput(prev => ({ ...prev, technical: e.target.value }))}
+                                onKeyPress={e => {
+                                  if (e.key === 'Enter' && newSkillInput.technical.trim()) {
+                                    addSkillV2('technical', newSkillInput.technical.trim(), 'Beginner');
+                                    setNewSkillInput(prev => ({ ...prev, technical: '' }));
+                                  }
+                                }}
+                                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                              <button
+                                onClick={() => {
+                                  if (newSkillInput.technical.trim()) {
+                                    addSkillV2('technical', newSkillInput.technical.trim(), 'Beginner');
+                                    setNewSkillInput(prev => ({ ...prev, technical: '' }));
+                                  }
+                                }}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                              >
+                                Add
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1115,17 +1122,34 @@ export function BuilderPage() {
                                 </div>
                               ))
                             )}
-                            <button
-                              onClick={() => {
-                                const skillName = prompt('Enter soft skill name:');
-                                if (skillName?.trim()) {
-                                  addSkillV2('soft', skillName.trim(), 'Beginner');
-                                }
-                              }}
-                              className="w-full py-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
-                            >
-                              + Add Soft Skill
-                            </button>
+                            
+                            {/* Add Soft Skill Input */}
+                            <div className="flex gap-2 pt-2">
+                              <input
+                                type="text"
+                                placeholder="Enter soft skill name..."
+                                value={newSkillInput.soft}
+                                onChange={e => setNewSkillInput(prev => ({ ...prev, soft: e.target.value }))}
+                                onKeyPress={e => {
+                                  if (e.key === 'Enter' && newSkillInput.soft.trim()) {
+                                    addSkillV2('soft', newSkillInput.soft.trim(), 'Beginner');
+                                    setNewSkillInput(prev => ({ ...prev, soft: '' }));
+                                  }
+                                }}
+                                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                              <button
+                                onClick={() => {
+                                  if (newSkillInput.soft.trim()) {
+                                    addSkillV2('soft', newSkillInput.soft.trim(), 'Beginner');
+                                    setNewSkillInput(prev => ({ ...prev, soft: '' }));
+                                  }
+                                }}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                              >
+                                Add
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1182,17 +1206,34 @@ export function BuilderPage() {
                                 </div>
                               ))
                             )}
-                            <button
-                              onClick={() => {
-                                const skillName = prompt('Enter language name:');
-                                if (skillName?.trim()) {
-                                  addSkillV2('languages', skillName.trim(), 'Beginner');
-                                }
-                              }}
-                              className="w-full py-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
-                            >
-                              + Add Language
-                            </button>
+                            
+                            {/* Add Language Input */}
+                            <div className="flex gap-2 pt-2">
+                              <input
+                                type="text"
+                                placeholder="Enter language name..."
+                                value={newSkillInput.languages}
+                                onChange={e => setNewSkillInput(prev => ({ ...prev, languages: e.target.value }))}
+                                onKeyPress={e => {
+                                  if (e.key === 'Enter' && newSkillInput.languages.trim()) {
+                                    addSkillV2('languages', newSkillInput.languages.trim(), 'Beginner');
+                                    setNewSkillInput(prev => ({ ...prev, languages: '' }));
+                                  }
+                                }}
+                                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                              <button
+                                onClick={() => {
+                                  if (newSkillInput.languages.trim()) {
+                                    addSkillV2('languages', newSkillInput.languages.trim(), 'Beginner');
+                                    setNewSkillInput(prev => ({ ...prev, languages: '' }));
+                                  }
+                                }}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                              >
+                                Add
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1527,6 +1568,29 @@ export function BuilderPage() {
               </motion.div>
             )}
           </main>
+
+          {/* Right Preview Panel - Hidden on mobile/tablet, visible on xl screens */}
+          <aside className="hidden xl:block xl:sticky xl:top-24 h-fit">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Live Preview</h3>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-gray-600 dark:text-gray-400">Live</span>
+                </div>
+              </div>
+              <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-white" style={{ 
+                maxHeight: 'calc(100vh - 200px)', 
+                overflowY: 'auto',
+                transform: 'scale(0.85)',
+                transformOrigin: 'top center',
+              }}>
+                <div style={{ padding: '40px' }}>
+                  <ResumePreview />
+                </div>
+              </div>
+            </div>
+          </aside>
         </div>
       </div>
     </div>

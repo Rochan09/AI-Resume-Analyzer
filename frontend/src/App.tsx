@@ -11,6 +11,9 @@ import { QuestionsPage } from './pages/QuestionsPage';
 import { ImprovementPage } from './pages/ImprovementPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { ProfilePage } from './pages/ProfilePage';
+import MockInterviewPage from './pages/MockInterviewPage';
+import InterviewHistoryPage from './pages/InterviewHistoryPage';
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState('home');
@@ -28,7 +31,7 @@ function AppContent() {
   }, []);
 
   // Protected pages that require authentication
-  const protectedPages = ['builder', 'ats', 'questions', 'improvement'];
+  const protectedPages = ['builder', 'ats', 'questions', 'improvement', 'profile', 'interview', 'interview-history'];
 
   const renderPage = () => {
     // Check if user is trying to access a protected page without being authenticated
@@ -53,6 +56,12 @@ function AppContent() {
         return <QuestionsPage />;
       case 'improvement':
         return <ImprovementPage />;
+      case 'profile':
+        return <ProfilePage />;
+      case 'interview':
+        return <MockInterviewPage />;
+      case 'interview-history':
+        return <InterviewHistoryPage />;
       default:
         return <HomePage />;
     }

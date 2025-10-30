@@ -176,15 +176,61 @@ export function ResumePreview() {
       )}
 
       {/* Skills */}
-      {resumeData.skills.length > 0 && (
+      {(resumeData.skills.length > 0 || 
+        (resumeData.skillCategories && resumeData.skillCategories.length > 0) ||
+        (resumeData.skillsV2 && (
+          (resumeData.skillsV2.technical && resumeData.skillsV2.technical.length > 0) ||
+          (resumeData.skillsV2.soft && resumeData.skillsV2.soft.length > 0) ||
+          (resumeData.skillsV2.languages && resumeData.skillsV2.languages.length > 0)
+        ))
+      ) && (
         <div className="mb-3">
           <h2 className="font-bold mb-1 pb-0.5 border-b border-black" style={{ fontSize: '12px' }}>
             Skills
           </h2>
           <div className="mt-1 space-y-1">
-            <div style={{ fontSize: '10px' }}>
-              {resumeData.skills.join(', ')}
-            </div>
+            {/* Display skillCategories (dynamic categories) if available */}
+            {resumeData.skillCategories && resumeData.skillCategories.length > 0 ? (
+              <>
+                {resumeData.skillCategories.map(category => (
+                  category.skills.length > 0 && (
+                    <div key={category.id} style={{ fontSize: '10px' }}>
+                      <span className="font-semibold">{category.category}: </span>
+                      {category.skills.map(skill => skill.name).join(', ')}
+                    </div>
+                  )
+                ))}
+              </>
+            ) : resumeData.skillsV2 ? (
+              /* Fallback to skillsV2 (categorized) if available */
+              <>
+                {resumeData.skillsV2.technical && resumeData.skillsV2.technical.length > 0 && (
+                  <div style={{ fontSize: '10px' }}>
+                    <span className="font-semibold">Technical: </span>
+                    {resumeData.skillsV2.technical.map(skill => skill.name).join(', ')}
+                  </div>
+                )}
+                {resumeData.skillsV2.soft && resumeData.skillsV2.soft.length > 0 && (
+                  <div style={{ fontSize: '10px' }}>
+                    <span className="font-semibold">Soft Skills: </span>
+                    {resumeData.skillsV2.soft.map(skill => skill.name).join(', ')}
+                  </div>
+                )}
+                {resumeData.skillsV2.languages && resumeData.skillsV2.languages.length > 0 && (
+                  <div style={{ fontSize: '10px' }}>
+                    <span className="font-semibold">Languages: </span>
+                    {resumeData.skillsV2.languages.map(skill => skill.name).join(', ')}
+                  </div>
+                )}
+              </>
+            ) : (
+              /* Final fallback to old skills array */
+              resumeData.skills.length > 0 && (
+                <div style={{ fontSize: '10px' }}>
+                  {resumeData.skills.join(', ')}
+                </div>
+              )
+            )}
           </div>
         </div>
       )}

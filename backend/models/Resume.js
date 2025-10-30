@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 
 const resumeSchema = new mongoose.Schema({
   resumeId: { type: String, required: true, unique: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  title: { type: String, default: 'Untitled Resume' },
   data: {
     personalInfo: {
       fullName: String,
@@ -39,6 +41,9 @@ const resumeSchema = new mongoose.Schema({
       link: String,
     }],
   },
+  atsScore: { type: Number },
+  grade: { type: String },
+  lastAnalyzed: { type: Date },
   updatedAt: { type: Date, default: Date.now },
 }, { timestamps: true });
 

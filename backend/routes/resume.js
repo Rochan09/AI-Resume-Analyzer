@@ -3,24 +3,44 @@ const fs = require('fs');
 const path = require('path');
 const PDFDocument = require('pdfkit');
 const { v4: uuidv4 } = require('uuid');
+const jwt = require('jsonwebtoken');
 const Resume = require('../models/Resume');
 
 const router = express.Router();
 
+// Middleware to verify JWT token
+const authMiddleware = (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ ok: false, error: 'No token provided' });
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.userId = decoded.userId;
+    next();
+  } catch (err) {
+    return res.status(401).json({ ok: false, error: 'Invalid token' });
+  }
+};
+
 // Create or update resume
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   try {
     const payload = req.body;
     let id = payload.id || uuidv4();
     
-    let resume = await Resume.findOne({ resumeId: id });
+    let resume = await Resume.findOne({ resumeId: id, userId: req.userId });
     if (resume) {
       resume.data = payload;
+      resume.title = payload.personalInfo?.fullName || 'Untitled Resume';
       resume.updatedAt = new Date();
       await resume.save();
     } else {
       resume = new Resume({
         resumeId: id,
+        userId: req.userId,
+        title: payload.personalInfo?.fullName || 'Untitled Resume',
         data: payload,
         updatedAt: new Date(),
       });
@@ -35,11 +55,21 @@ router.post('/', async (req, res) => {
 });
 
 // List
-router.get('/', async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
   try {
-    const resumes = await Resume.find().sort({ updatedAt: -1 });
-    const items = resumes.map(r => ({ id: r.resumeId, data: r.data, updatedAt: r.updatedAt }));
-    res.json({ ok: true, items });
+    const resumes = await Resume.find({ userId: req.userId }).sort({ updatedAt: -1 });
+    const items = resumes.map(r => ({ 
+      _id: r._id,
+      id: r.resumeId, 
+      title: r.title || 'Untitled Resume',
+      data: r.data, 
+      updatedAt: r.updatedAt,
+      createdAt: r.createdAt,
+      atsScore: r.atsScore,
+      grade: r.grade,
+      lastAnalyzed: r.lastAnalyzed,
+    }));
+    res.json({ ok: true, resumes: items });
   } catch (err) {
     console.error(err);
     res.status(500).json({ ok: false, error: err.message });
@@ -59,10 +89,32 @@ router.get('/:id', async (req, res) => {
 });
 
 // Delete
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
-    await Resume.deleteOne({ resumeId: req.params.id });
+    await Resume.deleteOne({ resumeId: req.params.id, userId: req.userId });
     res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Update ATS score
+router.patch('/:id/ats-score', authMiddleware, async (req, res) => {
+  try {
+    const { atsScore, grade } = req.body;
+    const resume = await Resume.findOne({ resumeId: req.params.id, userId: req.userId });
+    
+    if (!resume) {
+      return res.status(404).json({ ok: false, error: 'Resume not found' });
+    }
+    
+    resume.atsScore = atsScore;
+    resume.grade = grade;
+    resume.lastAnalyzed = new Date();
+    await resume.save();
+    
+    res.json({ ok: true, message: 'ATS score updated' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ ok: false, error: err.message });

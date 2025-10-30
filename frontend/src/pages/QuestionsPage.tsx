@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Code, Briefcase, FileText, ChevronDown, ChevronUp, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Users, Code, Briefcase, FileText, ChevronDown, ChevronUp, ArrowLeft, ArrowRight, Upload } from 'lucide-react';
 import { useResume } from '../contexts/ResumeContext';
 
 type QuestionCategory = 'behavioral' | 'technical' | 'situational' | 'resume';
@@ -22,6 +22,9 @@ export function QuestionsPage() {
     hr: string[];
     technical: string[];
     project: string[];
+    internships?: string[];
+    certifications?: string[];
+    skills?: string[];
   }>(null);
 
   // Check for questions from ATS upload on mount
@@ -38,15 +41,49 @@ export function QuestionsPage() {
     }
   }, []);
 
-  const hasResumeData = useMemo(() => {
-    return (
-      resumeData.personalInfo.fullName ||
-      resumeData.experience.length > 0 ||
-      resumeData.education.length > 0 ||
-      resumeData.skills.length > 0 ||
-      resumeData.projects.length > 0
-    );
-  }, [resumeData]);
+  // Resume panel state
+  const [showResumePanel, setShowResumePanel] = useState(false);
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [jobDescription, setJobDescription] = useState('');
+  const [genLoading, setGenLoading] = useState(false);
+  const usingResumeQuestions = !!uploadedQuestions;
+
+  const clearResumeQuestions = () => {
+    sessionStorage.removeItem('interviewPrepQuestions');
+    setUploadedQuestions(null);
+  };
+
+  const generateQuestionsFromResume = async () => {
+    if (!resumeFile && !jobDescription.trim()) {
+      alert('Please upload a resume file or paste a job description.');
+      return;
+    }
+    try {
+      setGenLoading(true);
+      const form = new FormData();
+      if (resumeFile) form.append('resume', resumeFile);
+      form.append('jobDescription', jobDescription);
+      const res = await fetch('http://localhost:5001/api/ats/analyze', {
+        method: 'POST',
+        body: form,
+      });
+  const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'Failed to analyze resume');
+      const q = data.questions || {};
+      sessionStorage.setItem('interviewPrepQuestions', JSON.stringify(q));
+  if (data.candidateName) sessionStorage.setItem('candidateName', data.candidateName);
+      setUploadedQuestions(q);
+      setShowResumePanel(false);
+      setCurrentQuestionIndex(0);
+      setActiveCategory('behavioral');
+    } catch (e: any) {
+      alert(e.message || 'Failed to generate questions');
+    } finally {
+      setGenLoading(false);
+    }
+  };
+
+  // Derived availability of resume data can be added later if needed
 
   // Generate questions based on resume data or uploaded questions
   const allQuestions = useMemo(() => {
@@ -165,7 +202,7 @@ export function QuestionsPage() {
       }
 
       if (resumeData.projects.length > 0) {
-        resumeData.projects.slice(0, 2).forEach((project, idx) => {
+        resumeData.projects.slice(0, 2).forEach((project) => {
           if (project.name) {
             resume.push({
               id: resume.length + 1,
@@ -297,14 +334,77 @@ export function QuestionsPage() {
           transition={{ duration: 0.5 }}
         >
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              Interview Preparation
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Practice with AI-generated questions based on your resume.
-            </p>
+          <div className="mb-4 flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                Interview Preparation
+              </h1>
+              <div className="flex items-center gap-2">
+                <p className="text-gray-600 dark:text-gray-400">
+                  Practice with AI-generated questions based on your resume.
+                </p>
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${usingResumeQuestions ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-300 dark:border-green-800' : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700'}`}>
+                  {usingResumeQuestions ? 'Resume-based' : 'Generic questions'}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowResumePanel(v => !v)}
+                title={usingResumeQuestions ? 'Using resume-based questions' : 'Upload your resume to get tailored questions'}
+                className={`${
+                  usingResumeQuestions
+                    ? 'px-3 py-2 rounded-lg border bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 border-gray-200 dark:border-gray-700'
+                    : 'px-3 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg hover:shadow-xl ring-2 ring-purple-300/60'
+                } text-sm inline-flex items-center gap-2 ${(!usingResumeQuestions && !showResumePanel) ? 'animate-pulse' : ''}`}
+              >
+                <Upload className="w-4 h-4" /> {showResumePanel ? 'Hide Resume' : 'Add Resume'}
+              </button>
+            </div>
           </div>
+
+          {showResumePanel && (
+            <div className="mb-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+              <div className="flex flex-col md:flex-row md:items-end gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Resume file (PDF/DOCX/TXT)</label>
+                  <input
+                    type="file"
+                    accept=".pdf,.docx,.txt"
+                    onChange={(e) => setResumeFile(e.target.files?.[0] || null)}
+                    className="block w-full text-xs text-gray-700 dark:text-gray-200 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Job description (optional)</label>
+                  <textarea
+                    value={jobDescription}
+                    onChange={(e) => setJobDescription(e.target.value)}
+                    rows={2}
+                    placeholder="Paste a job description to tailor questions"
+                    className="w-full text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-2 text-gray-800 dark:text-gray-200"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={generateQuestionsFromResume}
+                    disabled={genLoading}
+                    className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-semibold disabled:opacity-50"
+                  >
+                    {genLoading ? 'Generating…' : 'Generate Questions'}
+                  </button>
+                  {usingResumeQuestions && (
+                    <button
+                      onClick={clearResumeQuestions}
+                      className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-xs text-gray-700 dark:text-gray-300"
+                    >
+                      Use Generic
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid lg:grid-cols-[280px,1fr] gap-8">
             {/* Left Sidebar */}

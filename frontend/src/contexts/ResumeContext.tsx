@@ -18,6 +18,7 @@ export interface ResumeData {
     startDate: string;
     endDate: string;
     gpa?: string;
+    location?: string;
   }>;
   experience: Array<{
     id: string;
@@ -35,6 +36,11 @@ export interface ResumeData {
     soft: Array<{ id: string; name: string; level: string }>;
     languages: Array<{ id: string; name: string; level: string }>;
   };
+  skillCategories?: Array<{
+    id: string;
+    category: string;
+    skills: Array<{ id: string; name: string; level?: string }>;
+  }>;
   projects: Array<{
     id: string;
     name: string;
@@ -65,6 +71,7 @@ const defaultResumeData: ResumeData = {
     soft: [],
     languages: [],
   },
+  skillCategories: [],
   projects: [],
 };
 
@@ -97,7 +104,27 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateResumeData = (data: Partial<ResumeData>) => {
-    setResumeData(prev => ({ ...prev, ...data }));
+    setResumeData(prev => {
+      const updated = { ...prev };
+      
+      // Deep merge for nested objects
+      Object.keys(data).forEach(key => {
+        const typedKey = key as keyof ResumeData;
+        if (typedKey === 'personalInfo' && data.personalInfo) {
+          updated.personalInfo = { ...prev.personalInfo, ...data.personalInfo };
+        } else if (typedKey === 'skillsV2' && data.skillsV2) {
+          updated.skillsV2 = {
+            technical: data.skillsV2.technical ?? prev.skillsV2?.technical ?? [],
+            soft: data.skillsV2.soft ?? prev.skillsV2?.soft ?? [],
+            languages: data.skillsV2.languages ?? prev.skillsV2?.languages ?? [],
+          };
+        } else {
+          (updated as any)[typedKey] = data[typedKey];
+        }
+      });
+      
+      return updated;
+    });
   };
 
   const resetResumeData = () => {

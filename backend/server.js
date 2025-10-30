@@ -10,6 +10,7 @@ const resumeRoutes = require('./routes/resume');
 const atsRoutes = require('./routes/ats');
 const suggestionsRoutes = require('./routes/suggestions');
 const authRoutes = require('./routes/auth');
+const interviewRoutes = require('./routes/interview');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -37,6 +38,7 @@ app.use('/api/resume', resumeRoutes);
 app.use('/api/ats', atsRoutes);
 app.use('/api/suggestions', suggestionsRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/interview', interviewRoutes);
 
 app.get('/', (req, res) => {
   res.json({ ok: true, message: 'AI Resume Builder backend' });

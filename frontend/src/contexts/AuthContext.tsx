@@ -4,6 +4,8 @@ interface User {
   id: string;
   email: string;
   fullName: string;
+  name: string;
+  createdAt: string;
 }
 
 interface AuthContextType {
