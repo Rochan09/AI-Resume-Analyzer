@@ -1,0 +1,4 @@
+Jane Doe
+Software Engineer
+Developed a full-stack web application using React, Node.js and AWS. Built CI/CD pipelines using GitHub Actions. Implemented Docker-based deployments. Experienced with SQL and GraphQL.
+Experienced in leading teams and delivering projects on time.

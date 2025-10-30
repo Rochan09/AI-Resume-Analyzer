@@ -1,0 +1,53 @@
+[
+  {
+    "id": "338704d8-5a73-45f5-a38e-048f5babea4f",
+    "data": {
+      "personalInfo": {
+        "fullName": "Allu Arjun (Stylish Star)",
+        "email": "alluarjun@gmail.com",
+        "phone": "123321456",
+        "location": "Hyderabad",
+        "linkedin": "www.linked.com",
+        "portfolio": "www.portfolio.com"
+      },
+      "summary": "I am a actor alias Bhaiii",
+      "education": [
+        {
+          "id": "1761806867029",
+          "institution": "Acting School",
+          "degree": "Honors of Acting",
+          "field": "Acting",
+          "startDate": "12/12/2005",
+          "endDate": "12/12/2010",
+          "gpa": "10.0"
+        }
+      ],
+      "experience": [
+        {
+          "id": "1761806913819",
+          "company": "Gangotri",
+          "position": "Hero",
+          "startDate": "1/1/2011",
+          "endDate": "1/1/2012",
+          "current": false,
+          "description": ""
+        }
+      ],
+      "skills": [
+        "Laughing",
+        "Dancing",
+        "MOtivation"
+      ],
+      "projects": [
+        {
+          "id": "1761806978362",
+          "name": "Pushpa",
+          "description": "Sandalwood smugler",
+          "technologies": "Truck or Lorries",
+          "link": "Japan"
+        }
+      ]
+    },
+    "updatedAt": "2025-10-30T06:50:57.167Z"
+  }
+]
