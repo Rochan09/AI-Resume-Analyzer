@@ -292,17 +292,33 @@ export function MockInterviewPage() {
 
     const techCombined = [...technical, ...projects, ...internships, ...skills, ...certifications];
 
+    // Target counts per user requirement: HR=5, Technical=10, Full=15 (resume-only)
     let combined: QItem[] = [];
     if (mode === 'hr') {
-      combined = hrList; // no strict cap specified for HR-only mode
+      combined = hrList.slice(0, 5);
     }
     if (mode === 'technical') {
-      combined = techCombined.slice(0, 15); // exactly 15 for technical interview
+      combined = techCombined.slice(0, 10);
     }
     if (mode === 'full') {
-      const hrSelected = hrList.slice(0, 7);
-      const techSelected = techCombined.slice(0, 13);
-      combined = [...hrSelected, ...techSelected]; // total 20
+      const hrTarget = 5;
+      const techTarget = 10;
+      const hrSelected = hrList.slice(0, hrTarget);
+      const techSelected = techCombined.slice(0, techTarget);
+      // If one bucket is short, try to top up from the other to reach 15 total
+      let pool: QItem[] = [];
+      if (hrSelected.length < hrTarget) {
+        const deficit = hrTarget - hrSelected.length;
+        pool = [...techCombined.slice(techSelected.length)];
+        combined = [...hrSelected, ...techSelected, ...pool.slice(0, deficit)];
+      } else if (techSelected.length < techTarget) {
+        const deficit = techTarget - techSelected.length;
+        pool = [...hrList.slice(hrSelected.length)];
+        combined = [...hrSelected, ...techSelected, ...pool.slice(0, deficit)];
+      } else {
+        combined = [...hrSelected, ...techSelected];
+      }
+      // Still might be < 15 if overall resume-derived questions are limited; we keep resume-only and avoid generic padding.
     }
 
     // de-duplicate by question text
@@ -311,39 +327,7 @@ export function MockInterviewPage() {
     for (const it of combined) {
       if (!seen.has(it.question)) { seen.add(it.question); dedup.push(it); }
     }
-    // Fallbacks if not enough questions
-    if (mode === 'technical' && dedup.length < 15) {
-      const techFallback = [
-        'Explain a complex problem you solved recently.',
-        'How do you ensure code quality and maintainability?',
-        'Describe your debugging workflow.',
-        'How do you design APIs and data models?',
-        'Discuss a performance optimization you implemented.',
-      ];
-      for (const t of techFallback) {
-        if (dedup.length >= 15) break;
-        if (!seen.has(t)) { seen.add(t); dedup.push({ question: t, category: 'technical' }); }
-      }
-    }
-    if (mode === 'full' && dedup.length < 20) {
-      const hrFallback = [
-        'What are your strengths and how do they apply to this role?',
-        'Tell me about a time you handled conflict in a team.',
-        'Why are you interested in this role and our company?'
-      ];
-      for (const h of hrFallback) {
-        if (dedup.length >= 20) break;
-        if (!seen.has(h)) { seen.add(h); dedup.push({ question: h, category: 'hr' }); }
-      }
-      const techFallback = [
-        'How do you approach testing and automation?',
-        'Walk me through a system you designed.',
-      ];
-      for (const t of techFallback) {
-        if (dedup.length >= 20) break;
-        if (!seen.has(t)) { seen.add(t); dedup.push({ question: t, category: 'technical' }); }
-      }
-    }
+    // No generic fallbacks: keep resume-only as requested, even if counts are slightly below targets
     return dedup;
   }
 
@@ -394,24 +378,11 @@ export function MockInterviewPage() {
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || 'Failed to analyze resume');
-      const q = data.questions || {};
-      sessionStorage.setItem('interviewPrepQuestions', JSON.stringify(q));
+  const q = data.questions || {};
+  sessionStorage.setItem('interviewPrepQuestions', JSON.stringify(q));
       if (data.candidateName) sessionStorage.setItem('candidateName', data.candidateName);
-      const combined: QItem[] = [
-        ...(q.hr || []).map((t: string) => ({ question: t, category: 'hr' })),
-        ...(q.technical || []).map((t: string) => ({ question: t, category: 'technical' })),
-        ...(q.project || []).map((t: string) => ({ question: t, category: 'project' })),
-        ...(q.internships || []).map((t: string) => ({ question: t, category: 'internship' })),
-        ...(q.certifications || []).map((t: string) => ({ question: t, category: 'certification' })),
-        ...(q.skills || []).map((t: string) => ({ question: t, category: 'skills' })),
-      ].filter(Boolean);
-      const seen = new Set<string>();
-      const dedup: QItem[] = [];
-      for (const it of combined) {
-        if (!seen.has(it.question)) { seen.add(it.question); dedup.push(it); }
-      }
-      const built = buildQuestionsByMode(q, interviewMode);
-      const finalList = built.length ? built : dedup;
+      // Build resume-only questions per mode and counts
+      const finalList = buildQuestionsByMode(q, interviewMode);
       setQuestions(finalList.length ? finalList : DEFAULT_QUESTIONS.map(q => ({ question: q, category: 'general' })));
       setUsingResumeQuestions(!!finalList.length);
       setCandidateName(data.candidateName || null);
@@ -789,14 +760,14 @@ export function MockInterviewPage() {
   const avatarState = isSpeaking ? 'speaking' : listening ? 'listening' : 'idle';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-gray-900 pt-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-gray-900 overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-3 flex flex-col h-full">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">AI Mock Interview</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">AI Mock Interview</h1>
             <div className="flex items-center gap-2 mt-1">
-              <p className="text-sm text-gray-600 dark:text-gray-400">Practice with AI interviewer. Answer questions naturally.</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">Practice with AI interviewer. Answer questions naturally.</p>
               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${usingResumeQuestions ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-300 dark:border-green-800' : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700'}`}>
                 {usingResumeQuestions ? 'Resume-based' : 'Generic questions'}
               </span>
@@ -892,11 +863,11 @@ export function MockInterviewPage() {
 
         {!finished ? (
           /* Interview in progress - Two column layout */
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 overflow-hidden">
             {/* LEFT SIDE - Question + Avatar */}
-            <div className="space-y-4">
+            <div className="flex flex-col gap-3 h-full overflow-y-auto">
               {/* Question Card */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-lg">
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 shadow-lg">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
                     <MessageSquare className="w-5 h-5 text-white" />
@@ -913,19 +884,19 @@ export function MockInterviewPage() {
                   )}
                 </div>
                 <div className="relative">
-                  <p className="text-base text-gray-800 dark:text-gray-200 leading-relaxed">
+                  <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
                     {!started ? '👋 Welcome! Click "Start Interview" to begin. I\'ll ask you questions and you can answer naturally.' : (questions[currentIndex]?.question || DEFAULT_QUESTIONS[0])}
                   </p>
                 </div>
               </div>
 
               {/* Avatar */}
-              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl border border-purple-200 dark:border-purple-800 p-4 shadow-xl max-w-md mx-auto scale-90 md:scale-95">
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl border border-purple-200 dark:border-purple-800 p-3 shadow-xl max-w-sm mx-auto scale-75">
                 <AIInterviewerAvatar state={avatarState} name="AI Interviewer" />
               </div>
 
               {/* Progress bar */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-2">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-semibold text-gray-600 dark:text-gray-400">Progress</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{Math.round(progress)}%</p>
@@ -937,7 +908,7 @@ export function MockInterviewPage() {
             </div>
 
             {/* RIGHT SIDE - Answer Display + Controls */}
-            <div className="space-y-4">
+            <div className="flex flex-col gap-3 h-full overflow-y-auto">
               {/* Timer at top */}
               <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-2">
                 <div className="flex items-center justify-between">
@@ -953,7 +924,7 @@ export function MockInterviewPage() {
 
               {/* Answer Display Card with animated border when recording */}
               <div className={`
-                bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg transition-all duration-300
+                flex-1 flex flex-col bg-white dark:bg-gray-800 rounded-xl p-3 shadow-lg transition-all duration-300 min-h-0
                 ${listening ? 'border-4 border-red-500 dark:border-red-400 animate-pulse' : 'border border-gray-200 dark:border-gray-700'}
               `}>
                 <div className="flex items-center justify-between mb-4">
@@ -978,7 +949,7 @@ export function MockInterviewPage() {
                 </div>
 
                 {/* Live transcription display */}
-                <div className="min-h-[140px] max-h-[260px] overflow-y-auto p-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+                <div className="flex-1 overflow-y-auto p-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
                   {answer ? (
                     <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
                       {answer}

@@ -30,8 +30,11 @@ export function RegisterPage() {
 
     try {
       await register(email, password, fullName);
-      // Redirect to home after successful registration
-      window.location.hash = '';
+      // Redirect to home after successful registration, preserving hash routing behavior
+      const target = window.location.hash.slice(1);
+      if (!target || target === 'register') {
+        window.location.hash = 'home';
+      }
     } catch (err: any) {
       setError(err.message || 'Registration failed');
     } finally {

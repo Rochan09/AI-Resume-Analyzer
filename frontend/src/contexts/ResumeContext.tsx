@@ -3,11 +3,17 @@ import { createContext, useContext, useEffect, useState } from 'react';
 export interface ResumeData {
   personalInfo: {
     fullName: string;
+    jobTitle: string;
     email: string;
     phone: string;
     location: string;
     linkedin: string;
     portfolio: string;
+    customLinks?: Array<{
+      id: string;
+      platform: string;
+      url: string;
+    }>;
   };
   summary: string;
   education: Array<{
@@ -51,16 +57,29 @@ export interface ResumeData {
     startDate?: string;
     endDate?: string;
   }>;
+  customSections?: Array<{
+    id: string;
+    title: string;
+    items: Array<{
+      id: string;
+      title: string;
+      subtitle?: string;
+      description?: string;
+      date?: string;
+    }>;
+  }>;
 }
 
 const defaultResumeData: ResumeData = {
   personalInfo: {
     fullName: '',
+    jobTitle: '',
     email: '',
     phone: '',
     location: '',
     linkedin: '',
     portfolio: '',
+    customLinks: [],
   },
   summary: '',
   education: [],
@@ -73,6 +92,7 @@ const defaultResumeData: ResumeData = {
   },
   skillCategories: [],
   projects: [],
+  customSections: [],
 };
 
 interface ResumeContextType {

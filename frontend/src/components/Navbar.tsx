@@ -28,7 +28,13 @@ export function Navbar({ currentPage, onNavigate }: NavbarProps) {
     : [{ id: 'home', label: 'Home' }];
 
   const handleNavigate = (page: string) => {
-    onNavigate(page);
+    // Update both app state and URL hash so refresh stays on current page
+    try {
+      window.location.hash = page;
+    } catch {
+      // Fallback to state update if hash setting fails for any reason
+      onNavigate(page);
+    }
     setMobileMenuOpen(false);
     setProfileDropdownOpen(false);
   };

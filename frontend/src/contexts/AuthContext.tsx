@@ -20,9 +20,17 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    // Initialize from localStorage immediately
+    const storedUser = localStorage.getItem('authUser');
+    return storedUser ? JSON.parse(storedUser) : null;
+  });
+  const [token, setToken] = useState<string | null>(() => {
+    // Initialize from localStorage immediately
+    return localStorage.getItem('authToken');
+  });
 
+  // Keep this useEffect for any additional sync needs
   useEffect(() => {
     // Load token from localStorage on mount
     const storedToken = localStorage.getItem('authToken');

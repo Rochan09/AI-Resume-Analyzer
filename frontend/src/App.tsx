@@ -16,7 +16,11 @@ import MockInterviewPage from './pages/MockInterviewPage';
 import InterviewHistoryPage from './pages/InterviewHistoryPage';
 
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState('home');
+  // Initialize with current hash or default to 'home'
+  const [currentPage, setCurrentPage] = useState(() => {
+    const hash = window.location.hash.slice(1);
+    return hash || 'home';
+  });
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
@@ -25,7 +29,9 @@ function AppContent() {
       setCurrentPage(hash);
     };
 
+    // Initial load - ensure we're on the right page
     handleHashChange();
+    
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
@@ -36,8 +42,8 @@ function AppContent() {
   const renderPage = () => {
     // Check if user is trying to access a protected page without being authenticated
     if (protectedPages.includes(currentPage) && !isAuthenticated) {
-      // Redirect to login
-      window.location.hash = 'login';
+      // Don't change the hash, just render login page
+      // This preserves the intended destination
       return <LoginPage />;
     }
 

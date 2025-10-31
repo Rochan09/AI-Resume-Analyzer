@@ -13,46 +13,54 @@ export function ResumePreview() {
   return (
     <div className="bg-white text-black" style={{ fontFamily: 'Arial, sans-serif', fontSize: '11px', lineHeight: '1.4' }}>
       {/* Header */}
-      <div className="mb-3">
-        <h1 className="text-xl font-bold mb-1" style={{ fontSize: '18px' }}>
+      <div className="mb-3 text-center">
+        <h1 className="font-bold mb-1" style={{ fontSize: '16px' }}>
           {resumeData.personalInfo.fullName || 'Your Name'}
         </h1>
-        <div className="text-xs mb-1" style={{ fontSize: '10px' }}>
-          {resumeData.summary || 'Aspiring Job Title'}
-        </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ fontSize: '9px' }}>
-          {resumeData.personalInfo.linkedin && (
-            <div>
-              <span className="font-semibold">LinkedIn:</span>{' '}
-              <a href={resumeData.personalInfo.linkedin} className="text-blue-600 underline">
-                {resumeData.personalInfo.linkedin.replace('https://', '').replace('http://', '')}
-              </a>
-            </div>
-          )}
+        {resumeData.personalInfo.jobTitle && (
+          <div className="text-xs mb-2" style={{ fontSize: '11px' }}>
+            {resumeData.personalInfo.jobTitle}
+          </div>
+        )}
+        <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs" style={{ fontSize: '9px' }}>
           {resumeData.personalInfo.email && (
             <div>
-              <span className="font-semibold">Email:</span>{' '}
               <span className="text-blue-600">{resumeData.personalInfo.email}</span>
             </div>
           )}
           {resumeData.personalInfo.phone && (
             <div>
-              <span className="font-semibold">Phone:</span> {resumeData.personalInfo.phone}
+              {resumeData.personalInfo.phone}
             </div>
           )}
           {resumeData.personalInfo.location && (
             <div>
-              <span className="font-semibold">Location:</span> {resumeData.personalInfo.location}
+              {resumeData.personalInfo.location}
+            </div>
+          )}
+          {resumeData.personalInfo.linkedin && (
+            <div>
+              <a href={resumeData.personalInfo.linkedin} className="text-blue-600 underline">
+                {resumeData.personalInfo.linkedin.replace('https://', '').replace('http://', '').replace('www.', '')}
+              </a>
             </div>
           )}
           {resumeData.personalInfo.portfolio && (
             <div>
-              <span className="font-semibold">GitHub:</span>{' '}
               <a href={resumeData.personalInfo.portfolio} className="text-blue-600 underline">
-                {resumeData.personalInfo.portfolio.replace('https://', '').replace('http://', '')}
+                {resumeData.personalInfo.portfolio.replace('https://', '').replace('http://', '').replace('www.', '')}
               </a>
             </div>
           )}
+          {resumeData.personalInfo.customLinks && resumeData.personalInfo.customLinks.map(link => (
+            link.platform && link.url && (
+              <div key={link.id}>
+                <a href={link.url} className="text-blue-600 underline">
+                  {link.platform}
+                </a>
+              </div>
+            )
+          ))}
         </div>
       </div>
 
@@ -162,6 +170,12 @@ export function ResumePreview() {
                     </span>
                   )}
                 </div>
+                {proj.technologies && (
+                  <div className="italic mt-0.5" style={{ fontSize: '10px' }}>
+                    <span className="font-semibold">Technologies: </span>
+                    {proj.technologies}
+                  </div>
+                )}
                 {proj.description && (
                   <ul className="list-disc ml-4 space-y-0.5 mt-0.5" style={{ fontSize: '10px' }}>
                     {proj.description.split('\n').filter(line => line.trim()).map((line, idx) => (
@@ -233,6 +247,51 @@ export function ResumePreview() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Custom Sections */}
+      {resumeData.customSections && resumeData.customSections.length > 0 && (
+        <>
+          {resumeData.customSections.map(customSection => (
+            customSection.items.length > 0 && (
+              <div key={customSection.id} className="mb-3">
+                <h2 className="font-bold mb-1 pb-0.5 border-b border-black" style={{ fontSize: '12px' }}>
+                  {customSection.title}
+                </h2>
+                <div className="space-y-2 mt-1">
+                  {customSection.items.map(item => (
+                    <div key={item.id}>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="font-bold" style={{ fontSize: '11px' }}>
+                            {item.title}
+                          </div>
+                          {item.subtitle && (
+                            <div className="italic" style={{ fontSize: '10px' }}>
+                              {item.subtitle}
+                            </div>
+                          )}
+                        </div>
+                        {item.date && (
+                          <div style={{ fontSize: '10px' }}>
+                            {item.date}
+                          </div>
+                        )}
+                      </div>
+                      {item.description && (
+                        <div className="mt-0.5" style={{ fontSize: '10px' }}>
+                          {item.description.split('\n').filter(line => line.trim()).map((line, idx) => (
+                            <div key={idx}>{line.trim()}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          ))}
+        </>
       )}
     </div>
   );

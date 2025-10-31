@@ -21,15 +21,17 @@ export function LoginPage() {
 
     try {
       await login(email, password);
-      // Small delay to ensure auth state updates, then redirect
-      setTimeout(() => {
-        window.location.hash = '';
-        window.location.reload();
-      }, 100);
+      // After successful login, preserve current target hash if it was a protected page
+      const target = window.location.hash.slice(1);
+      if (!target || target === 'login' || target === 'register') {
+        // Default landing page if no target was set
+        window.location.hash = 'home';
+      }
+      setLoading(false);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Login failed';
-      setError(msg);
-      setLoading(false);
+  setError(msg);
+  setLoading(false);
     }
   };
 
