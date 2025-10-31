@@ -760,8 +760,8 @@ export function MockInterviewPage() {
   const avatarState = isSpeaking ? 'speaking' : listening ? 'listening' : 'idle';
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-gray-900 overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-3 flex flex-col h-full">
+    <div className={`${finished ? 'min-h-screen' : 'h-screen'} flex flex-col bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-gray-900 ${finished ? '' : 'overflow-hidden'}`}>
+      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-3 ${finished ? '' : 'flex flex-col h-full'}`}>
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <div>
