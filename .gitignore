@@ -1,0 +1,68 @@
+# Node
+node_modules/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+.eslintcache
+*.tsbuildinfo
+
+# Env files (do not commit secrets)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+backend/.env
+frontend/.env
+
+# Build outputs
+frontend/dist/
+frontend/.vite/
+frontend/.cache/
+frontend/coverage/
+backend/coverage/
+coverage/
+build/
+dist/
+
+# Vite cache (sometimes created in project root)
+.vite/
+
+# Editor/IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS junk
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# Runtime/temp
+.tmp/
+.tmp*/
+tmp/
+temp/
+*.pid
+*.pid.lock
+
+# Project data (generated/uploads/exports)
+backend/data/uploads/
+backend/public/exports/
+backend/data/*.json
+backend/data/test-resume.txt
+
+# Misc
+*.bak
+*.out
