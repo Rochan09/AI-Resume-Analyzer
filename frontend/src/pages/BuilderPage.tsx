@@ -1506,13 +1506,25 @@ export function BuilderPage() {
                     onClick={async () => {
                       setExporting(true);
                       try {
+                        const token = localStorage.getItem('authToken');
                         const saveRes = await fetch('http://localhost:5001/api/resume', {
                           method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
+                          headers: {
+                            'Content-Type': 'application/json',
+                            ...(token ? { Authorization: `Bearer ${token}` } : {})
+                          },
                           body: JSON.stringify(resumeData),
                         });
                         const saveJson = await saveRes.json();
                         const id = saveJson.id;
+                        // Notify other parts of the app that a resume was saved
+                        try {
+                          if (saveJson.entry) {
+                            window.dispatchEvent(new CustomEvent('resumeSaved', { detail: saveJson.entry }));
+                          }
+                        } catch (e) {
+                          // ignore event dispatch errors in older browsers
+                        }
                         const expRes = await fetch(`http://localhost:5001/api/resume/${id}/export`, { method: 'POST' });
                         const expJson = await expRes.json();
                         if (expJson.ok && expJson.url) {

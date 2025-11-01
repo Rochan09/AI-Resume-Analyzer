@@ -28,6 +28,16 @@ export function ProfilePage() {
     fetchUserResumes();
   }, []);
 
+  // Listen for resumes saved elsewhere (Builder) to refresh the list
+  useEffect(() => {
+    const handler = () => {
+      // Re-fetch resumes when a new resume is saved
+      fetchUserResumes();
+    };
+    window.addEventListener('resumeSaved', handler as EventListener);
+    return () => window.removeEventListener('resumeSaved', handler as EventListener);
+  }, []);
+
   const fetchUserResumes = async () => {
     try {
       const token = localStorage.getItem('authToken');
