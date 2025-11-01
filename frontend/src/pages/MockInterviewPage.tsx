@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+
+// API base (Vite injects VITE_API_BASE_URL at build time)
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
 import { Play, Send, Mic, MicOff, MessageSquare, Sparkles, Clock, Volume2, VolumeX, TrendingUp, Award, AlertCircle, CheckCircle, Upload } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { AIInterviewerAvatar } from '../components/AIInterviewerAvatar';
@@ -372,7 +375,7 @@ export function MockInterviewPage() {
       const form = new FormData();
       if (resumeFile) form.append('resume', resumeFile);
       form.append('jobDescription', jobDescription);
-      const res = await fetch('http://localhost:5001/api/ats/analyze', {
+  const res = await fetch(`${API_BASE}/api/ats/analyze`, {
         method: 'POST',
         body: form
       });
@@ -631,7 +634,7 @@ export function MockInterviewPage() {
           durationSec: it.durationSec,
         })),
       };
-      const res = await fetch('http://localhost:5001/api/interview/sessions', {
+  const res = await fetch(`${API_BASE}/api/interview/sessions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

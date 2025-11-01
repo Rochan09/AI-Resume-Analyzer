@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
 import { motion } from 'framer-motion';
 import { Upload, CheckCircle, AlertCircle, TrendingUp, FileText, Send, Check, Info } from 'lucide-react';
 
@@ -113,7 +115,7 @@ export function ATSPage() {
       form.append('resume', file as Blob, (file as File).name);
       form.append('jobDescription', jobDescription || '');
 
-      const apiPromise = fetch('http://localhost:5001/api/ats/analyze', {
+  const apiPromise = fetch(`${API_BASE}/api/ats/analyze`, {
         method: 'POST',
         body: form,
       });
@@ -170,7 +172,7 @@ export function ATSPage() {
         if (resumeId) {
           try {
             const token = localStorage.getItem('authToken');
-            await fetch(`http://localhost:5001/api/resume/${resumeId}/ats-score`, {
+            await fetch(`${API_BASE}/api/resume/${resumeId}/ats-score`, {
               method: 'PATCH',
               headers: {
                 'Content-Type': 'application/json',

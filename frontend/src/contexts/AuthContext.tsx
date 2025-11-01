@@ -1,5 +1,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
+// API base is injected at build time by Vite via VITE_API_BASE_URL
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
+
 interface User {
   id: string;
   email: string;
@@ -43,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const res = await fetch('http://localhost:5001/api/auth/login', {
+  const res = await fetch(`${API_BASE}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -69,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (email: string, password: string, fullName: string) => {
-    const res = await fetch('http://localhost:5001/api/auth/register', {
+  const res = await fetch(`${API_BASE}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, fullName }),

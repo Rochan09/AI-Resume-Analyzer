@@ -1,4 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
+
+// API base (Vite injects VITE_API_BASE_URL at build time)
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
 import { motion } from 'framer-motion';
 import { Users, Code, Briefcase, FileText, ChevronDown, ChevronUp, Upload } from 'lucide-react';
 import { useResume } from '../contexts/ResumeContext';
@@ -62,7 +65,7 @@ export function QuestionsPage() {
       const form = new FormData();
       if (resumeFile) form.append('resume', resumeFile);
       form.append('jobDescription', jobDescription);
-      const res = await fetch('http://localhost:5001/api/ats/analyze', {
+  const res = await fetch(`${API_BASE}/api/ats/analyze`, {
         method: 'POST',
         body: form,
       });

@@ -1,3 +1,6 @@
+import { useState, useEffect, useRef } from 'react';
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Download, Plus, Trash2, Upload, User, Briefcase, GraduationCap, Award, FolderGit2, ChevronDown, ChevronUp, Link, Search, Sparkles, Edit, Eye } from 'lucide-react';
@@ -1507,7 +1510,7 @@ export function BuilderPage() {
                       setExporting(true);
                       try {
                         const token = localStorage.getItem('authToken');
-                        const saveRes = await fetch('http://localhost:5001/api/resume', {
+                        const saveRes = await fetch(`${API_BASE}/api/resume`, {
                           method: 'POST',
                           headers: {
                             'Content-Type': 'application/json',
@@ -1525,10 +1528,10 @@ export function BuilderPage() {
                         } catch (e) {
                           // ignore event dispatch errors in older browsers
                         }
-                        const expRes = await fetch(`http://localhost:5001/api/resume/${id}/export`, { method: 'POST' });
+                        const expRes = await fetch(`${API_BASE}/api/resume/${id}/export`, { method: 'POST' });
                         const expJson = await expRes.json();
                         if (expJson.ok && expJson.url) {
-                          window.open(`http://localhost:5001${expJson.url}`, '_blank');
+                          window.open(`${API_BASE}${expJson.url}`, '_blank');
                         } else {
                           alert('Export failed');
                         }

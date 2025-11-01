@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
 import { useAuth } from '../contexts/AuthContext';
 import { BarChart3, CalendarClock, ListChecks } from 'lucide-react';
 
@@ -26,7 +28,7 @@ export default function InterviewHistoryPage() {
           setLoading(false);
           return;
         }
-        const res = await fetch('http://localhost:5001/api/interview/sessions', {
+  const res = await fetch(`${API_BASE}/api/interview/sessions`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();

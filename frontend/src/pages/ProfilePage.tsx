@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
+
+// API base (Vite injects VITE_API_BASE_URL at build time)
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
 import { motion } from 'framer-motion';
 import { User, Mail, Calendar, FileText, TrendingUp, LogOut, Edit, Trash2, BarChart3, Award, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+
 
 interface ResumeCard {
   _id: string;
@@ -41,7 +45,7 @@ export function ProfilePage() {
   const fetchUserResumes = async () => {
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch('http://localhost:5001/api/resume', {
+  const response = await fetch(`${API_BASE}/api/resume`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -89,7 +93,7 @@ export function ProfilePage() {
 
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`http://localhost:5001/api/resume/${id}`, {
+  const response = await fetch(`${API_BASE}/api/resume/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
